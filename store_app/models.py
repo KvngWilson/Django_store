@@ -1,89 +1,90 @@
-from django.contrib.auth.models import User
 from django.db import models
-
-# Create your models here.
-# Product Categories
-class Collection(models.Model):
-  name = models.CharField(max_length=50)
-
-  def __str__(self):
-    return self.name
+import datetime
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
 
 
-# Users
-class User(models.Model):
-  customer = models.OneToOneField(User, null=True, blank=True, on_delete=models.CASCADE)  
-  first_name = models.CharField(max_length=50)
-  last_name = models.CharField(max_length=50)
-  phone = models.CharField(max_length=10)
-  email = models.EmailField(max_length=100)
-  password = models.CharField(max_length=100)
+# Create Customer Profile
+class Profile(models.Model):
+	user = models.OneToOneField(User, on_delete=models.CASCADE)
+	date_modified = models.DateTimeField(User, auto_now=True)
+	phone = models.CharField(max_length=20, blank=True)
+	address1 = models.CharField(max_length=200, blank=True)
+	address2 = models.CharField(max_length=200, blank=True)
+	city = models.CharField(max_length=200, blank=True)
+	state = models.CharField(max_length=200, blank=True)
+	zipcode = models.CharField(max_length=200, blank=True)
+	country = models.CharField(max_length=200, blank=True)
+	old_cart = models.CharField(max_length=200, blank=True, null=True)
 
-  def __str__(self):
-    return f'{self.first_name} {self.last_name}'
+	def __str__(self):
+		return self.user.username
+
+# Create a user Profile by default when user signs up
+def create_profile(sender, instance, created, **kwargs):
+	if created:
+		user_profile = Profile(user=instance)
+		user_profile.save()
+
+# Automate the profile thing
+post_save.connect(create_profile, sender=User)
 
 
-# Inventory
+
+
+
+
+
+# Categories of Products
+class Category(models.Model):
+	name = models.CharField(max_length=50)
+
+	def __str__(self):
+		return self.name
+
+	#@daverobb2011
+	class Meta:
+		verbose_name_plural = 'categories'
+
+
+# Customers
+class Customer(models.Model):
+	first_name = models.CharField(max_length=50)
+	last_name = models.CharField(max_length=50)
+	phone = models.CharField(max_length=10)
+	email = models.EmailField(max_length=100)
+	password = models.CharField(max_length=100)
+
+
+	def __str__(self):
+		return f'{self.first_name} {self.last_name}'
+
+
+
+# All of our Products
 class Product(models.Model):
-  name = models.CharField(max_length=50)
-  price = models.DecimalField(max_digits=50, default=0, decimal_places=6)
-  category = models.ForeignKey(Collection, on_delete=models.CASCADE, default=1)
-  description = models.CharField(max_length=250, default='', blank=True, null=True)
-  image = models.ImageField(upload_to='uploads/product/')
+	name = models.CharField(max_length=100)
+	price = models.DecimalField(default=0, decimal_places=2, max_digits=6)
+	category = models.ForeignKey(Category, on_delete=models.CASCADE, default=1)
+	description = models.CharField(max_length=250, default='', blank=True, null=True)
+	image = models.ImageField(upload_to='uploads/product/')
+	# Add Sale Stuff
+	is_sale = models.BooleanField(default=False)
+	sale_price = models.DecimalField(default=0, decimal_places=2, max_digits=6)
 
-  is_sale = models.BooleanField(default=False)
-  sale_price = models.DecimalField(default=0, decimal_places=2, max_digits=6)
-
-  def __str__(self):
-    return self.name
-  
-  @property
-  def imageURL(self):
-    try :
-      url = self.image.url
-    except:
-      url = ''
-    return url
+	def __str__(self):
+		return self.name
 
 
 # Customer Orders
 class Order(models.Model):
-  items = models.ForeignKey(Product, on_delete=models.CASCADE)
-  customer = models.ForeignKey(User, on_delete=models.CASCADE)
-  quantity = models.IntegerField(default=1)
-  date = models.DateTimeField(auto_now_add=True)
-  status = models.BooleanField(default=False)
+	product = models.ForeignKey(Product, on_delete=models.CASCADE)
+	customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+	quantity = models.IntegerField(default=1)
+	address = models.CharField(max_length=100, default='', blank=True)
+	phone = models.CharField(max_length=20, default='', blank=True)
+	date = models.DateField(default=datetime.datetime.today)
+	status = models.BooleanField(default=False)
 
-  def __str__(self):
-    return str(self.id) 
-  
-  @property
-  def get_total(self):
-    total = self.product.price * self.quantity
-    return total
-  
-  @property
-  def get_cart_total(self):
-    order_items = self.orderitem_set.all()
-    total = sum([item.get_total for item in order_items])
-    return total
-  
-  @property
-  def get_cart_items(self):
-    order_items = self.orderitem_set.all()
-    total = sum([item.quantity for item in order_items])
-    return total  
-  
-
-class ShippingAddress(models.Model):
-  customer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-  order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True)
-  address = models.CharField(max_length=200, null=False)
-  city = models.CharField(max_length=200, null=False)
-  state = models.CharField(max_length=200, null=False)
-  zipcode = models.CharField(max_length=200, null=False)
-  date = models.DateTimeField(auto_now_add=True)
-
-  def __str__(self):
-    return self.address
-  
+	def __str__(self):
+		return self.product
